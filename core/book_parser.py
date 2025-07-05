@@ -349,11 +349,12 @@ class EPubParser:
             else:
                 css_combined += """
                 img {
-                  max-width: 100%;
-                  height: auto;
-                  display: block;
-                  object-fit: contain;
-                  margin: 1em auto;
+                  display: block !important;
+                  margin-left: auto !important;
+                  margin-right: auto !important;
+                  height: auto !important;
+                  max-width: 100% !important;
+                  object-fit: contain !important;
                 }
                 body {
                   margin: 1em;
