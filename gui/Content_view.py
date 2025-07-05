@@ -32,4 +32,173 @@ class Ui_Form(object):
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
-from PyQt5 import QtWebEngineWidgets
+
+    def setup_custom_scrollbar(self):
+        """Setup the custom scrollbar functionality"""
+        # Hide default scrollbars using CSS
+        self.hide_default_scrollbars()
+
+        # Style the custom scrollbar
+        self.style_custom_scrollbar()
+
+        # Connect scrollbar to web view
+        self.connect_scrollbar()
+
+    def hide_default_scrollbars(self):
+        """Hide the default scrollbars of QWebEngineView using CSS"""
+        # CSS to hide scrollbars
+        css = """
+        ::-webkit-scrollbar {
+            width: 0px;
+            height: 0px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+        """
+
+        # Inject CSS after page loads
+        self.textBrowser.loadFinished.connect(lambda: self.inject_css(css))
+
+    def inject_css(self, css):
+        """Inject CSS into the web page"""
+        script = f"""
+        var style = document.createElement('style');
+        style.innerHTML = `{css}`;
+        document.head.appendChild(style);
+        """
+        self.textBrowser.page().runJavaScript(script)
+
+    def style_custom_scrollbar(self):
+        """Style the custom scrollbar"""
+        scrollbar_style = """
+        QScrollBar:vertical {
+            background: transparent;
+            width: 12px;
+            margin: 0px;
+        }
+
+        QScrollBar::handle:vertical {
+            background: #c5c5d2;  /* light gray handle */
+            border-radius: 6px;
+            min-height: 20px;
+        }
+
+        QScrollBar::handle:vertical:hover {
+            background: #a0a0b2;  /* darker on hover */
+        }
+
+        QScrollBar::handle:vertical:pressed {
+            background: #7e7e99;  /* even darker on press */
+        }
+        QScrollBar::sub-line:vertical {
+            border: none;
+            height: 14px;
+            background: #e0e0e0;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            subcontrol-origin: margin;
+            subcontrol-position: top;
+        }
+    
+        /* Bottom button (add-line) */
+        QScrollBar::add-line:vertical {
+            border: none;
+            height: 14px;
+            background: #e0e0e0;
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 6px;
+            subcontrol-origin: margin;
+            subcontrol-position: bottom;
+        }
+    
+        QScrollBar::sub-line:vertical:hover,
+        QScrollBar::add-line:vertical:hover {
+            background: #cccccc;
+        }
+    
+        QScrollBar::sub-line:vertical:pressed,
+        QScrollBar::add-line:vertical:pressed {
+            background: #aaaaaa;
+        }
+
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+            background: none;
+        }
+        """
+        self.verticalScrollBar.setStyleSheet(scrollbar_style)
+    def connect_scrollbar(self):
+        """Connect the custom scrollbar to the web view"""
+        # Connect custom scrollbar value change to web view scrolling
+        self.verticalScrollBar.valueChanged.connect(self.scroll_web_view)
+
+        # Monitor web view scroll changes and update custom scrollbar
+        self.textBrowser.page().scrollPositionChanged.connect(self.update_custom_scrollbar)
+
+        # Update scrollbar range when page loads
+        self.textBrowser.loadFinished.connect(self.update_scrollbar_range)
+
+    def scroll_web_view(self, value):
+        """Scroll the web view based on custom scrollbar value"""
+        # Convert scrollbar value to web view scroll position
+        max_val = self.verticalScrollBar.maximum()
+        if max_val > 0:
+            script = f"""
+            var maxScroll = Math.max(0, document.body.scrollHeight - window.innerHeight);
+            var scrollPercent = {value} / {max_val};
+            var scrollPosition = maxScroll * scrollPercent;
+            window.scrollTo(0, scrollPosition);
+            """
+            self.textBrowser.page().runJavaScript(script)
+
+    def update_custom_scrollbar(self, position):
+        """Update custom scrollbar position based on web view scroll"""
+        script = """
+        var maxScroll = Math.max(0, document.body.scrollHeight - window.innerHeight);
+        var currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+        var scrollPercent = maxScroll > 0 ? currentScroll / maxScroll : 0;
+        scrollPercent;
+        """
+        self.textBrowser.page().runJavaScript(script, self.set_scrollbar_value)
+
+    def set_scrollbar_value(self, scroll_percent):
+        """Set the custom scrollbar value based on scroll percentage"""
+        if scroll_percent is not None:
+            value = int(scroll_percent * self.verticalScrollBar.maximum())
+            self.verticalScrollBar.blockSignals(True)  # Prevent infinite loop
+            self.verticalScrollBar.setValue(value)
+            self.verticalScrollBar.blockSignals(False)
+
+    def update_scrollbar_range(self):
+        """Update the scrollbar range based on page content"""
+        script = """
+        var maxScroll = Math.max(0, document.body.scrollHeight - window.innerHeight);
+        var pageHeight = window.innerHeight;
+        var totalHeight = document.body.scrollHeight;
+        ({maxScroll: maxScroll, pageHeight: pageHeight, totalHeight: totalHeight});
+        """
+        self.textBrowser.page().runJavaScript(script, self.set_scrollbar_range)
+
+    def set_scrollbar_range(self, dimensions):
+        """Set the scrollbar range and page step"""
+        if dimensions:
+            max_scroll = dimensions.get('maxScroll', 0)
+            page_height = dimensions.get('pageHeight', 100)
+            total_height = dimensions.get('totalHeight', 100)
+
+            # Set scrollbar range (0 to 100 for percentage-based scrolling)
+            self.verticalScrollBar.setRange(0, 100)
+
+            # Set page step based on visible area
+            if total_height > 0:
+                page_step = int((page_height / total_height) * 100)
+                self.verticalScrollBar.setPageStep(max(1, page_step))
+
+            # Set single step
+            self.verticalScrollBar.setSingleStep(5)
