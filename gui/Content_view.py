@@ -29,6 +29,7 @@ class Ui_Form(object):
 
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
+        self.setup_custom_scrollbar()
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
