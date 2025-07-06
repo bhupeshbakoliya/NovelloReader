@@ -12,7 +12,6 @@ from core.book_parser import EPubParser
 from PyQt5.QtGui import  QKeySequence, QPixmap
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QUrl
-from ebooklib import epub
 from lxml import etree
 import zipfile
 
